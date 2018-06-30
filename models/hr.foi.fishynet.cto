@@ -18,25 +18,87 @@
 
 namespace hr.foi.fishynet
 
-participant SampleParticipant identified by participantId {
-  o String participantId
-  o String firstName
-  o String lastName
+enum FishType {
+  o TUNA_WILD
+  o TUNA_FARM
 }
 
-asset SampleAsset identified by assetId {
-  o String assetId
-  --> SampleParticipant owner
-  o String value
+enum FishState {
+  o ALIVE
+  o STORED
+  o EVALUATED
+  o SOLD
 }
 
-transaction SampleTransaction {
-  --> SampleAsset asset
-  o String newValue
+enum MeasurementType {
+  o FAT
+  o WEIGHT
+  o TEMPERATURE
 }
 
-event SampleEvent {
-  --> SampleAsset asset
-  o String oldValue
-  o String newValue
+abstract transaction FishTransaction {
+  --> Fish fish
+}
+
+transaction FishCaught extends FishTransaction {
+  o Double latitude
+  o Double longitude
+  o DateTime at
+}
+
+transaction FishBorn extends FishTransaction {
+  o MeasurementType type
+  o DateTime at
+}
+
+transaction FishMeasurement extends FishTransaction {
+  o MeasurementType type
+  o Double value
+  o DateTime at
+}
+
+transaction FishSold extends FishTransaction {
+  o Double price
+  o DateTime at
+}
+
+transaction FishMeasurement extends FishTransaction {
+  o MeasurementType type
+  o Double value
+  o DateTime at
+}
+
+abstract participant Business identified by email {
+  o String email
+  o String name
+  o Double balance
+}
+
+participant Fisher extends Business {
+}
+
+participant Buyer extends Business {
+}
+
+participant Regulator identified by regulatorId {
+  o String regulatorId
+  o String name
+}
+
+asset Fish identified by fishId {
+  o String fihsId
+  o FishType type
+  o FishState state
+  --> Fisher fisher
+  --> Regulator regulator
+  --> Buyer buyer
+  o FishMeasurement[] measurements
+}
+
+event NewCaught {
+  --> Fish fish
+}
+
+event FishSold {
+  --> Fish fish
 }
