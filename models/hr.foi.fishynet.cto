@@ -36,36 +36,40 @@ enum MeasurementType {
   o TEMPERATURE
 }
 
+abstract transaction NewFishTransaction {
+  --> Fisher fisher
+  o String fishId
+}
+
 abstract transaction FishTransaction {
   --> Fish fish
 }
 
-transaction FishCaught extends FishTransaction {
+transaction FishCaught extends NewFishTransaction {
   o Double latitude
   o Double longitude
-  o DateTime at
 }
 
-transaction FishBorn extends FishTransaction {
-  o MeasurementType type
-  o DateTime at
+transaction FishBorn extends NewFishTransaction {
+}
+
+transaction FishKilled extends FishTransaction {
 }
 
 transaction FishMeasurement extends FishTransaction {
   o MeasurementType type
   o Double value
-  o DateTime at
+}
+
+transaction FishEvaluation extends FishTransaction {
+  --> Regulator regulator
 }
 
 transaction FishSold extends FishTransaction {
-  o Double price
-  o DateTime at
-}
-
-transaction FishMeasurement extends FishTransaction {
-  o MeasurementType type
-  o Double value
-  o DateTime at
+  --> Buyer buyer
+  o Double pricePerKilo
+  o Double fatMultiplier
+  o Double priceTotal
 }
 
 abstract participant Business identified by email {
@@ -86,19 +90,19 @@ participant Regulator identified by regulatorId {
 }
 
 asset Fish identified by fishId {
-  o String fihsId
+  o String fishId
   o FishType type
   o FishState state
   --> Fisher fisher
   --> Regulator regulator
-  --> Buyer buyer
-  o FishMeasurement[] measurements
+  o NewFishTransaction source
+  o FishMeasurement[] history
 }
 
-event NewCaught {
+event FishCaughtEvent {
   --> Fish fish
 }
 
-event FishSold {
+event FishSoldEvent {
   --> Fish fish
 }

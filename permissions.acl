@@ -15,28 +15,11 @@
 /**
  * Sample access control list.
  */
-rule EverybodyCanReadEverything {
-    description: "Allow all participants read access to all resources"
-    participant: "hr.foi.fishynet.SampleParticipant"
-    operation: READ
-    resource: "hr.foi.fishynet.*"
-    action: ALLOW
-}
-
-rule EverybodyCanSubmitTransactions {
-    description: "Allow all participants to submit transactions"
-    participant: "hr.foi.fishynet.SampleParticipant"
-    operation: CREATE
-    resource: "hr.foi.fishynet.SampleTransaction"
-    action: ALLOW
-}
-
-rule OwnerHasFullAccessToTheirAssets {
-    description: "Allow all participants full access to their assets"
-    participant(p): "hr.foi.fishynet.SampleParticipant"
+rule EverybodyCanEverything {
+    description: "Allow all"
+    participant: "ANY"
     operation: ALL
-    resource(r): "hr.foi.fishynet.SampleAsset"
-    condition: (r.owner.getIdentifier() === p.getIdentifier())
+    resource: "hr.foi.fishynet.*"
     action: ALLOW
 }
 
