@@ -1,1 +1,4 @@
 *.bna
+node_modules
+*.card
+*.bna
