@@ -9,7 +9,6 @@ enum FishState {
   o ALIVE
   o STORED
   o EVALUATED
-  o SOLD
 }
 
 enum MeasurementType {
@@ -76,16 +75,19 @@ asset Fish identified by fishId {
   o FishType type
   o FishState state
   --> Fisher fisher
-  --> Regulator regulator
+  --> Regulator regulator optional
   --> Business owner
-  o NewFishTransaction source
-  o FishMeasurement[] history
 }
 
-event FishCaughtEvent {
+event FishKilledEvent {
+  --> Fish fish
+}
+
+event FishMeasuredEvent {
   --> Fish fish
 }
 
 event FishSoldEvent {
   --> Fish fish
 }
+
