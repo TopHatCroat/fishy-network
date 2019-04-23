@@ -1,40 +1,36 @@
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 'use strict';
 /**
- * Write the unit tests for your transction processor functions here
+ * Write the unit tests for your transaction processor functions here
  */
 
-const AdminConnection = require('composer-admin').AdminConnection;
-const BusinessNetworkConnection = require('composer-client').BusinessNetworkConnection;
-const { BusinessNetworkDefinition, CertificateUtil, IdCard } = require('composer-common');
-const path = require('path');
+const { AdminConnection } = require('composer-admin');
+const { BusinessNetworkConnection } = require('composer-client');
+const {
+    NetworkCardStoreManager,
+    BusinessNetworkDefinition,
+    CertificateUtil,
+    IdCard,
+} = require('composer-common');
 
+const path = require('path');
 const chai = require('chai');
 chai.should();
 chai.use(require('chai-as-promised'));
 
+// Name of the business network card containing the administrative identity for
+// the business network
+const adminCardName = 'admin@fishy-network';
 const namespace = 'hr.foi.fishynet';
-const assetType = 'SampleAsset';
-const assetNS = namespace + '.' + assetType;
-const participantType = 'SampleParticipant';
-const participantNS = namespace + '.' + participantType;
+const fishType = 'Fish';
+const fishCanonicalName = `${namespace}.${fishType}`;
+const fisherType = 'Fisher';
+const fisherCanonicalName = `${namespace}.${fisherType}`;
 
-describe('#' + namespace, () => {
-    // In-memory card store for testing so cards are not persisted to the file system
-    const cardStore = require('composer-common').NetworkCardStoreManager.getCardStore( { type: 'composer-wallet-inmemory' } );
+describe(`#${namespace}`, () => {
+    // In-memory card store for testing
+    const cardStore = NetworkCardStoreManager.getCardStore({
+        type: 'composer-wallet-inmemory'
+    });
 
     // Embedded connection used for local testing
     const connectionProfile = {
@@ -42,20 +38,18 @@ describe('#' + namespace, () => {
         'x-type': 'embedded'
     };
 
-    // Name of the business network card containing the administrative identity for the business network
-    const adminCardName = 'admin';
-
     // Admin connection to the blockchain, used to deploy the business network
     let adminConnection;
 
     // This is the business network connection the tests will use.
-    let businessNetworkConnection;
+    let bnc;
 
     // This is the factory for creating instances of types.
     let factory;
 
-    // These are the identities for Alice and Bob.
+    // These are the identities for Alice, Eve and Bob.
     const aliceCardName = 'alice';
+    const eveCardName = 'eve';
     const bobCardName = 'bob';
 
     // These are a list of receieved events.
@@ -102,9 +96,9 @@ describe('#' + namespace, () => {
     // This is called before each test is executed.
     beforeEach(async () => {
         // Generate a business network definition from the project directory.
-        let businessNetworkDefinition = await BusinessNetworkDefinition.fromDirectory(path.resolve(__dirname, '..'));
-        businessNetworkName = businessNetworkDefinition.getName();
-        await adminConnection.install(businessNetworkDefinition);
+        let bnd = await BusinessNetworkDefinition.fromDirectory(path.resolve(__dirname, '..'));
+        businessNetworkName = bnd.getName();
+        await adminConnection.install(bnd);
         const startOptions = {
             networkAdmins: [
                 {
@@ -113,48 +107,62 @@ describe('#' + namespace, () => {
                 }
             ]
         };
-        const adminCards = await adminConnection.start(businessNetworkName, businessNetworkDefinition.getVersion(), startOptions);
+        const adminCards = await adminConnection.start(
+            businessNetworkName,
+            bnd.getVersion(),
+            startOptions
+        );
         await adminConnection.importCard(adminCardName, adminCards.get('admin'));
 
         // Create and establish a business network connection
-        businessNetworkConnection = new BusinessNetworkConnection({ cardStore: cardStore });
+        bnc = new BusinessNetworkConnection({ cardStore: cardStore });
         events = [];
-        businessNetworkConnection.on('event', event => {
+        bnc.on('event', event => {
             events.push(event);
         });
-        await businessNetworkConnection.connect(adminCardName);
+        await bnc.connect(adminCardName);
 
         // Get the factory for the business network.
-        factory = businessNetworkConnection.getBusinessNetwork().getFactory();
+        factory = bnc.getBusinessNetwork().getFactory();
 
-        const participantRegistry = await businessNetworkConnection.getParticipantRegistry(participantNS);
+        const participantRegistry = await bnc.getParticipantRegistry(fisherCanonicalName);
         // Create the participants.
-        const alice = factory.newResource(namespace, participantType, 'alice@email.com');
-        alice.firstName = 'Alice';
-        alice.lastName = 'A';
+        const alice = factory.newResource(namespace, fisherType, 'alice@email.com');
+        alice.name = 'Alice';
+        alice.balance = 10.00;
 
-        const bob = factory.newResource(namespace, participantType, 'bob@email.com');
-        bob.firstName = 'Bob';
-        bob.lastName = 'B';
+        const eve = factory.newResource(namespace, fisherType, 'eve@email.com');
+        eve.name = 'Eve';
+        eve.balance = 50.00;
 
-        participantRegistry.addAll([alice, bob]);
+        const bob = factory.newResource(namespace, fisherType, 'bob@email.com');
+        bob.name = 'Bob';
+        bob.balance = 100.00;
 
-        const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
+        participantRegistry.addAll([alice, eve, bob]);
+
+        const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
         // Create the assets.
-        const asset1 = factory.newResource(namespace, assetType, '1');
-        asset1.owner = factory.newRelationship(namespace, participantType, 'alice@email.com');
-        asset1.value = '10';
+        const asset1 = factory.newResource(namespace, fishType, 'WTUNA1');
+        asset1.fisher = factory.newRelationship(namespace, fisherType, 'alice@email.com');
+        asset1.owner = factory.newRelationship(namespace, fisherType, 'alice@email.com');
+        asset1.type = 'TUNA_WILD';
+        asset1.state = 'STORED';
 
-        const asset2 = factory.newResource(namespace, assetType, '2');
-        asset2.owner = factory.newRelationship(namespace, participantType, 'bob@email.com');
-        asset2.value = '20';
+        const asset2 = factory.newResource(namespace, fishType, 'FTUNA1');
+        asset2.fisher = factory.newRelationship(namespace, fisherType, 'eve@email.com');
+        asset2.owner = factory.newRelationship(namespace, fisherType, 'eve@email.com');
+        asset2.type = 'TUNA_FARM';
+        asset2.state = 'STORED';
 
         assetRegistry.addAll([asset1, asset2]);
 
         // Issue the identities.
-        let identity = await businessNetworkConnection.issueIdentity(participantNS + '#alice@email.com', 'alice1');
+        let identity = await bnc.issueIdentity(`${fisherCanonicalName}#alice@email.com`, 'alice1');
         await importCardForIdentity(aliceCardName, identity);
-        identity = await businessNetworkConnection.issueIdentity(participantNS + '#bob@email.com', 'bob1');
+        identity = await bnc.issueIdentity(`${fisherCanonicalName}#eve@email.com`, 'eve1');
+        await importCardForIdentity(eveCardName, identity);
+        identity = await bnc.issueIdentity(`${fisherCanonicalName}#bob@email.com`, 'bob1');
         await importCardForIdentity(bobCardName, identity);
     });
 
@@ -163,46 +171,77 @@ describe('#' + namespace, () => {
      * @param {String} cardName The name of the card for the identity to use
      */
     async function useIdentity(cardName) {
-        await businessNetworkConnection.disconnect();
-        businessNetworkConnection = new BusinessNetworkConnection({ cardStore: cardStore });
+        await bnc.disconnect();
+        bnc = new BusinessNetworkConnection({ cardStore: cardStore });
         events = [];
-        businessNetworkConnection.on('event', (event) => {
+        bnc.on('event', (event) => {
             events.push(event);
         });
-        await businessNetworkConnection.connect(cardName);
-        factory = businessNetworkConnection.getBusinessNetwork().getFactory();
+        await bnc.connect(cardName);
+        factory = bnc.getBusinessNetwork().getFactory();
     }
 
     it('Alice can read all of the assets', async () => {
         // Use the identity for Alice.
         await useIdentity(aliceCardName);
-        const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
+        const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
         const assets = await assetRegistry.getAll();
 
         // Validate the assets.
         assets.should.have.lengthOf(2);
         const asset1 = assets[0];
-        asset1.owner.getFullyQualifiedIdentifier().should.equal(participantNS + '#alice@email.com');
-        asset1.value.should.equal('10');
+        asset1.owner.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#eve@email.com`);
+        asset1.type.should.equal('TUNA_FARM');
+        asset1.state.should.equal('STORED');
+
         const asset2 = assets[1];
-        asset2.owner.getFullyQualifiedIdentifier().should.equal(participantNS + '#bob@email.com');
-        asset2.value.should.equal('20');
+        asset2.owner.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#alice@email.com`);
+        asset2.type.should.equal('TUNA_WILD');
+        asset2.state.should.equal('STORED');
     });
 
     it('Bob can read all of the assets', async () => {
         // Use the identity for Bob.
         await useIdentity(bobCardName);
-        const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
+        const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
         const assets = await assetRegistry.getAll();
 
         // Validate the assets.
         assets.should.have.lengthOf(2);
         const asset1 = assets[0];
-        asset1.owner.getFullyQualifiedIdentifier().should.equal(participantNS + '#alice@email.com');
-        asset1.value.should.equal('10');
+        asset1.owner.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#eve@email.com`);
+        asset1.type.should.equal('TUNA_FARM');
+        asset1.state.should.equal('STORED');
+
         const asset2 = assets[1];
-        asset2.owner.getFullyQualifiedIdentifier().should.equal(participantNS + '#bob@email.com');
-        asset2.value.should.equal('20');
+        asset2.owner.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#alice@email.com`);
+        asset2.type.should.equal('TUNA_WILD');
+        asset2.state.should.equal('STORED');
+    });
+
+    it('Eve can read all of the assets', async () => {
+        // Use the identity for Bob.
+        await useIdentity(eveCardName);
+        const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
+        const assets = await assetRegistry.getAll();
+
+        // Validate the assets.
+        assets.should.have.lengthOf(2);
+        const asset1 = assets[0];
+        asset1.owner.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#eve@email.com`);
+        asset1.type.should.equal('TUNA_FARM');
+        asset1.state.should.equal('STORED');
+
+        const asset2 = assets[1];
+        asset2.owner.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#alice@email.com`);
+        asset2.type.should.equal('TUNA_WILD');
+        asset2.state.should.equal('STORED');
     });
 
     it('Alice can add assets that she owns', async () => {
