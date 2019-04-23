@@ -48,9 +48,9 @@ describe(`#${namespace}`, () => {
     let factory;
 
     // These are the identities for Alice, Eve and Bob.
-    const aliceCardName = 'alice';
-    const eveCardName = 'eve';
-    const bobCardName = 'bob';
+    const wildFisherName = 'alice';
+    const farmFisherName = 'eve';
+    const buyerName = 'bob';
 
     // These are a list of receieved events.
     let events;
@@ -153,17 +153,17 @@ describe(`#${namespace}`, () => {
         asset2.fisher = factory.newRelationship(namespace, fisherType, 'eve@email.com');
         asset2.owner = factory.newRelationship(namespace, fisherType, 'eve@email.com');
         asset2.type = 'TUNA_FARM';
-        asset2.state = 'STORED';
+        asset2.state = 'ALIVE';
 
         assetRegistry.addAll([asset1, asset2]);
 
         // Issue the identities.
         let identity = await bnc.issueIdentity(`${fisherCanonicalName}#alice@email.com`, 'alice1');
-        await importCardForIdentity(aliceCardName, identity);
+        await importCardForIdentity(wildFisherName, identity);
         identity = await bnc.issueIdentity(`${fisherCanonicalName}#eve@email.com`, 'eve1');
-        await importCardForIdentity(eveCardName, identity);
+        await importCardForIdentity(farmFisherName, identity);
         identity = await bnc.issueIdentity(`${fisherCanonicalName}#bob@email.com`, 'bob1');
-        await importCardForIdentity(bobCardName, identity);
+        await importCardForIdentity(buyerName, identity);
     });
 
     /**
@@ -181,9 +181,9 @@ describe(`#${namespace}`, () => {
         factory = bnc.getBusinessNetwork().getFactory();
     }
 
-    it('Alice can read all of the assets', async () => {
+    it('Wild fisher can read all of the assets', async () => {
         // Use the identity for Alice.
-        await useIdentity(aliceCardName);
+        await useIdentity(wildFisherName);
         const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
         const assets = await assetRegistry.getAll();
 
@@ -193,7 +193,7 @@ describe(`#${namespace}`, () => {
         asset1.owner.getFullyQualifiedIdentifier()
             .should.equal(`${fisherCanonicalName}#eve@email.com`);
         asset1.type.should.equal('TUNA_FARM');
-        asset1.state.should.equal('STORED');
+        asset1.state.should.equal('ALIVE');
 
         const asset2 = assets[1];
         asset2.owner.getFullyQualifiedIdentifier()
@@ -202,9 +202,9 @@ describe(`#${namespace}`, () => {
         asset2.state.should.equal('STORED');
     });
 
-    it('Bob can read all of the assets', async () => {
+    it('Farm fisher can read all of the assets', async () => {
         // Use the identity for Bob.
-        await useIdentity(bobCardName);
+        await useIdentity(farmFisherName);
         const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
         const assets = await assetRegistry.getAll();
 
@@ -214,7 +214,7 @@ describe(`#${namespace}`, () => {
         asset1.owner.getFullyQualifiedIdentifier()
             .should.equal(`${fisherCanonicalName}#eve@email.com`);
         asset1.type.should.equal('TUNA_FARM');
-        asset1.state.should.equal('STORED');
+        asset1.state.should.equal('ALIVE');
 
         const asset2 = assets[1];
         asset2.owner.getFullyQualifiedIdentifier()
@@ -223,9 +223,9 @@ describe(`#${namespace}`, () => {
         asset2.state.should.equal('STORED');
     });
 
-    it('Eve can read all of the assets', async () => {
+    it('Buyer can read all of the assets', async () => {
         // Use the identity for Bob.
-        await useIdentity(eveCardName);
+        await useIdentity(buyerName);
         const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
         const assets = await assetRegistry.getAll();
 
@@ -235,7 +235,7 @@ describe(`#${namespace}`, () => {
         asset1.owner.getFullyQualifiedIdentifier()
             .should.equal(`${fisherCanonicalName}#eve@email.com`);
         asset1.type.should.equal('TUNA_FARM');
-        asset1.state.should.equal('STORED');
+        asset1.state.should.equal('ALIVE');
 
         const asset2 = assets[1];
         asset2.owner.getFullyQualifiedIdentifier()
@@ -246,10 +246,10 @@ describe(`#${namespace}`, () => {
 
     it('Alice can add assets that she owns', async () => {
         // Use the identity for Alice.
-        await useIdentity(aliceCardName);
+        await useIdentity(wildFisherName);
 
         // Create the asset.
-        let asset3 = factory.newResource(namespace, assetType, '3');
+        let asset3 = factory.newResource(namespace, fishType, '3');
         asset3.owner = factory.newRelationship(namespace, participantType, 'alice@email.com');
         asset3.value = '30';
 
@@ -265,7 +265,7 @@ describe(`#${namespace}`, () => {
 
     it('Alice cannot add assets that Bob owns', async () => {
         // Use the identity for Alice.
-        await useIdentity(aliceCardName);
+        await useIdentity(wildFisherName);
 
         // Create the asset.
         const asset3 = factory.newResource(namespace, assetType, '3');
@@ -279,7 +279,7 @@ describe(`#${namespace}`, () => {
 
     it('Bob can add assets that he owns', async () => {
         // Use the identity for Bob.
-        await useIdentity(bobCardName);
+        await useIdentity(buyerName);
 
         // Create the asset.
         let asset4 = factory.newResource(namespace, assetType, '4');
@@ -298,7 +298,7 @@ describe(`#${namespace}`, () => {
 
     it('Bob cannot add assets that Alice owns', async () => {
         // Use the identity for Bob.
-        await useIdentity(bobCardName);
+        await useIdentity(buyerName);
 
         // Create the asset.
         const asset4 = factory.newResource(namespace, assetType, '4');
@@ -313,7 +313,7 @@ describe(`#${namespace}`, () => {
 
     it('Alice can update her assets', async () => {
         // Use the identity for Alice.
-        await useIdentity(aliceCardName);
+        await useIdentity(wildFisherName);
 
         // Create the asset.
         let asset1 = factory.newResource(namespace, assetType, '1');
@@ -332,7 +332,7 @@ describe(`#${namespace}`, () => {
 
     it('Alice cannot update Bob\'s assets', async () => {
         // Use the identity for Alice.
-        await useIdentity(aliceCardName);
+        await useIdentity(wildFisherName);
 
         // Create the asset.
         const asset2 = factory.newResource(namespace, assetType, '2');
@@ -346,7 +346,7 @@ describe(`#${namespace}`, () => {
 
     it('Bob can update his assets', async () => {
         // Use the identity for Bob.
-        await useIdentity(bobCardName);
+        await useIdentity(buyerName);
 
         // Create the asset.
         let asset2 = factory.newResource(namespace, assetType, '2');
@@ -365,7 +365,7 @@ describe(`#${namespace}`, () => {
 
     it('Bob cannot update Alice\'s assets', async () => {
         // Use the identity for Bob.
-        await useIdentity(bobCardName);
+        await useIdentity(buyerName);
 
         // Create the asset.
         const asset1 = factory.newResource(namespace, assetType, '1');
@@ -380,7 +380,7 @@ describe(`#${namespace}`, () => {
 
     it('Alice can remove her assets', async () => {
         // Use the identity for Alice.
-        await useIdentity(aliceCardName);
+        await useIdentity(wildFisherName);
 
         // Remove the asset, then test the asset exists.
         const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
@@ -391,7 +391,7 @@ describe(`#${namespace}`, () => {
 
     it('Alice cannot remove Bob\'s assets', async () => {
         // Use the identity for Alice.
-        await useIdentity(aliceCardName);
+        await useIdentity(wildFisherName);
 
         // Remove the asset, then test the asset exists.
         const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
@@ -400,7 +400,7 @@ describe(`#${namespace}`, () => {
 
     it('Bob can remove his assets', async () => {
         // Use the identity for Bob.
-        await useIdentity(bobCardName);
+        await useIdentity(buyerName);
 
         // Remove the asset, then test the asset exists.
         const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
@@ -411,7 +411,7 @@ describe(`#${namespace}`, () => {
 
     it('Bob cannot remove Alice\'s assets', async () => {
         // Use the identity for Bob.
-        await useIdentity(bobCardName);
+        await useIdentity(buyerName);
 
         // Remove the asset, then test the asset exists.
         const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
@@ -420,7 +420,7 @@ describe(`#${namespace}`, () => {
 
     it('Alice can submit a transaction for her assets', async () => {
         // Use the identity for Alice.
-        await useIdentity(aliceCardName);
+        await useIdentity(wildFisherName);
 
         // Submit the transaction.
         const transaction = factory.newTransaction(namespace, 'SampleTransaction');
@@ -448,7 +448,7 @@ describe(`#${namespace}`, () => {
 
     it('Alice cannot submit a transaction for Bob\'s assets', async () => {
         // Use the identity for Alice.
-        await useIdentity(aliceCardName);
+        await useIdentity(wildFisherName);
 
         // Submit the transaction.
         const transaction = factory.newTransaction(namespace, 'SampleTransaction');
@@ -459,7 +459,7 @@ describe(`#${namespace}`, () => {
 
     it('Bob can submit a transaction for his assets', async () => {
         // Use the identity for Bob.
-        await useIdentity(bobCardName);
+        await useIdentity(buyerName);
 
         // Submit the transaction.
         const transaction = factory.newTransaction(namespace, 'SampleTransaction');
@@ -487,7 +487,7 @@ describe(`#${namespace}`, () => {
 
     it('Bob cannot submit a transaction for Alice\'s assets', async () => {
         // Use the identity for Bob.
-        await useIdentity(bobCardName);
+        await useIdentity(buyerName);
 
         // Submit the transaction.
         const transaction = factory.newTransaction(namespace, 'SampleTransaction');
