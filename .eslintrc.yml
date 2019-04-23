@@ -15,8 +15,9 @@ globals:
     post: true
     emit: true
 rules:
-    indent:
+    max-len:
         - error
+        - 100
         - 4
     linebreak-style:
         - error
