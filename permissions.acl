@@ -12,7 +12,7 @@ rule FisherCanCreateTheirFish {
   participant(p): "hr.foi.fishynet.Fisher"
   operation: CREATE
   resource(a): "hr.foi.fishynet.Fish"
-  condition: (a.fisher.getIdentifier() == p.getIdentifier())
+  condition: (a.owner.getIdentifier() == p.getIdentifier())
   action: ALLOW
 }
 

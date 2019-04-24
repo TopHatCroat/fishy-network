@@ -25,6 +25,8 @@ const fishType = 'Fish';
 const fishCanonicalName = `${namespace}.${fishType}`;
 const fisherType = 'Fisher';
 const fisherCanonicalName = `${namespace}.${fisherType}`;
+const buyerType = 'Buyer';
+const buyerCanonicalName = `${namespace}.${buyerType}`;
 
 describe(`#${namespace}`, () => {
     // In-memory card store for testing
@@ -125,21 +127,25 @@ describe(`#${namespace}`, () => {
         // Get the factory for the business network.
         factory = bnc.getBusinessNetwork().getFactory();
 
-        const participantRegistry = await bnc.getParticipantRegistry(fisherCanonicalName);
-        // Create the participants.
-        const alice = factory.newResource(namespace, fisherType, 'alice@email.com');
-        alice.name = 'Alice';
-        alice.balance = 10.00;
+        const fisherRegistry = await bnc.getParticipantRegistry(fisherCanonicalName);
+        // Create the fishers.
+        const wildFisher = factory.newResource(namespace, fisherType, 'alice@email.com');
+        wildFisher.name = 'Alice';
+        wildFisher.balance = 10.00;
 
-        const eve = factory.newResource(namespace, fisherType, 'eve@email.com');
-        eve.name = 'Eve';
-        eve.balance = 50.00;
+        const farmFisher = factory.newResource(namespace, fisherType, 'eve@email.com');
+        farmFisher.name = 'Eve';
+        farmFisher.balance = 50.00;
 
-        const bob = factory.newResource(namespace, fisherType, 'bob@email.com');
-        bob.name = 'Bob';
-        bob.balance = 100.00;
+        fisherRegistry.addAll([wildFisher, farmFisher]);
 
-        participantRegistry.addAll([alice, eve, bob]);
+        const buyerRegistry = await bnc.getParticipantRegistry(buyerCanonicalName);
+        // create the buyer
+        const buyer = factory.newResource(namespace, buyerType, 'bob@email.com');
+        buyer.name = 'Bob';
+        buyer.balance = 100.00;
+
+        buyerRegistry.add(buyer);
 
         const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
         // Create the assets.
@@ -162,7 +168,7 @@ describe(`#${namespace}`, () => {
         await importCardForIdentity(wildFisherName, identity);
         identity = await bnc.issueIdentity(`${fisherCanonicalName}#eve@email.com`, 'eve1');
         await importCardForIdentity(farmFisherName, identity);
-        identity = await bnc.issueIdentity(`${fisherCanonicalName}#bob@email.com`, 'bob1');
+        identity = await bnc.issueIdentity(`${buyerCanonicalName}#bob@email.com`, 'bob1');
         await importCardForIdentity(buyerName, identity);
     });
 
@@ -244,93 +250,94 @@ describe(`#${namespace}`, () => {
         asset2.state.should.equal('STORED');
     });
 
-    it('Alice can add assets that she owns', async () => {
+    it('Wild fisher can catch new fish', async () => {
         // Use the identity for Alice.
         await useIdentity(wildFisherName);
 
-        // Create the asset.
-        let asset3 = factory.newResource(namespace, fishType, '3');
-        asset3.owner = factory.newRelationship(namespace, participantType, 'alice@email.com');
-        asset3.value = '30';
+        // Create FishCaugth transaction
+        const transaction = factory.newTransaction(namespace, 'CatchFish');
+        transaction.fishId = 'WTUNA2';
+        transaction.fisher = factory.newRelationship(namespace, fisherType, 'alice@email.com');
+        transaction.latitude = 45.50;
+        transaction.longitude = 15.90;
+        await bnc.submitTransaction(transaction);
 
-        // Add the asset, then get the asset.
-        const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
-        await assetRegistry.add(asset3);
+        // Get the asset.
+        const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
+        const createdAsset = await assetRegistry.get('WTUNA2');
 
         // Validate the asset.
-        asset3 = await assetRegistry.get('3');
-        asset3.owner.getFullyQualifiedIdentifier().should.equal(participantNS + '#alice@email.com');
-        asset3.value.should.equal('30');
+        createdAsset.owner.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#alice@email.com`);
+        createdAsset.fisher.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#alice@email.com`);
+        createdAsset.type.should.equal('TUNA_WILD');
+        createdAsset.state.should.equal('STORED');
+
+        // Validate the events.
+        events.should.have.lengthOf(1);
+        const event = events[0];
+        event.eventId.should.be.a('string');
+        event.timestamp.should.be.an.instanceOf(Date);
+        event.fish.getFullyQualifiedIdentifier().should.equal(`${fishCanonicalName}#WTUNA2`);
+        event.fisher.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#alice@email.com`);
+
+        // Validate the asset.
+        const savedAsset = await assetRegistry.get('WTUNA2');
+        savedAsset.owner.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#alice@email.com`);
+        savedAsset.type.should.equal('TUNA_WILD');
+        savedAsset.state.should.equal('STORED');
     });
 
-    it('Alice cannot add assets that Bob owns', async () => {
+    it('Wild fisher cannot add assets that Buyer owns', async () => {
         // Use the identity for Alice.
         await useIdentity(wildFisherName);
 
         // Create the asset.
-        const asset3 = factory.newResource(namespace, assetType, '3');
-        asset3.owner = factory.newRelationship(namespace, participantType, 'bob@email.com');
-        asset3.value = '30';
+        let asset = factory.newResource(namespace, fishType, 'WTUNA2');
+        asset.fisher = factory.newRelationship(namespace, fisherType, 'alice@email.com');
+        asset.owner = factory.newRelationship(namespace, buyerType, 'bob@email.com');
+        asset.type = 'TUNA_WILD';
+        asset.state = 'STORED';
 
         // Try to add the asset, should fail.
-        const assetRegistry = await  businessNetworkConnection.getAssetRegistry(assetNS);
-        assetRegistry.add(asset3).should.be.rejectedWith(/does not have .* access to resource/);
+        const assetRegistry = await  bnc.getAssetRegistry(fishCanonicalName);
+        assetRegistry.add(asset).should.be.rejectedWith(/does not have .* access to resource/);
     });
 
-    it('Bob can add assets that he owns', async () => {
+    it('Buyer can not directly add assets that he owns', async () => {
         // Use the identity for Bob.
         await useIdentity(buyerName);
 
         // Create the asset.
-        let asset4 = factory.newResource(namespace, assetType, '4');
-        asset4.owner = factory.newRelationship(namespace, participantType, 'bob@email.com');
-        asset4.value = '40';
+        let asset = factory.newResource(namespace, fishType, 'WTUNA3');
+        asset.fisher = factory.newRelationship(namespace, fisherType, 'alice@email.com');
+        asset.owner = factory.newRelationship(namespace, buyerType, 'bob@email.com');
+        asset.type = 'TUNA_WILD';
+        asset.state = 'STORED';
 
         // Add the asset, then get the asset.
-        const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
-        await assetRegistry.add(asset4);
-
-        // Validate the asset.
-        asset4 = await assetRegistry.get('4');
-        asset4.owner.getFullyQualifiedIdentifier().should.equal(participantNS + '#bob@email.com');
-        asset4.value.should.equal('40');
+        const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
+        assetRegistry.add(asset).should.be.rejectedWith(/does not have .* access to resource/);
     });
 
-    it('Bob cannot add assets that Alice owns', async () => {
-        // Use the identity for Bob.
-        await useIdentity(buyerName);
-
-        // Create the asset.
-        const asset4 = factory.newResource(namespace, assetType, '4');
-        asset4.owner = factory.newRelationship(namespace, participantType, 'alice@email.com');
-        asset4.value = '40';
-
-        // Try to add the asset, should fail.
-        const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
-        assetRegistry.add(asset4).should.be.rejectedWith(/does not have .* access to resource/);
-
-    });
-
-    it('Alice can update her assets', async () => {
+    it('Fisher can not update their assets without a transaction', async () => {
         // Use the identity for Alice.
-        await useIdentity(wildFisherName);
+        await useIdentity(farmFisherName);
 
-        // Create the asset.
-        let asset1 = factory.newResource(namespace, assetType, '1');
-        asset1.owner = factory.newRelationship(namespace, participantType, 'alice@email.com');
-        asset1.value = '50';
+        // Get the asset, then update the asset.
+        const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
+        const existingAsset = await assetRegistry.get('FTUNA1');
 
-        // Update the asset, then get the asset.
-        const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
-        await assetRegistry.update(asset1);
+        existingAsset.state = 'STORED';
 
-        // Validate the asset.
-        asset1 = await assetRegistry.get('1');
-        asset1.owner.getFullyQualifiedIdentifier().should.equal(participantNS + '#alice@email.com');
-        asset1.value.should.equal('50');
+        await assetRegistry.update(existingAsset)
+            .should.be.rejectedWith(/does not have .* access to resource/)
     });
 
-    it('Alice cannot update Bob\'s assets', async () => {
+    it('Wild fisher cannot update Buyer\'s assets', async () => {
         // Use the identity for Alice.
         await useIdentity(wildFisherName);
 
@@ -344,7 +351,7 @@ describe(`#${namespace}`, () => {
         assetRegistry.update(asset2).should.be.rejectedWith(/does not have .* access to resource/);
     });
 
-    it('Bob can update his assets', async () => {
+    it('Buyer can update his assets', async () => {
         // Use the identity for Bob.
         await useIdentity(buyerName);
 
@@ -363,7 +370,7 @@ describe(`#${namespace}`, () => {
         asset2.value.should.equal('60');
     });
 
-    it('Bob cannot update Alice\'s assets', async () => {
+    it('Buyer cannot update Wild fisher\'s assets', async () => {
         // Use the identity for Bob.
         await useIdentity(buyerName);
 
@@ -375,10 +382,9 @@ describe(`#${namespace}`, () => {
         // Update the asset, then get the asset.
         const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
         assetRegistry.update(asset1).should.be.rejectedWith(/does not have .* access to resource/);
-
     });
 
-    it('Alice can remove her assets', async () => {
+    it('Wild fisher can remove her assets', async () => {
         // Use the identity for Alice.
         await useIdentity(wildFisherName);
 
@@ -389,7 +395,7 @@ describe(`#${namespace}`, () => {
         exists.should.be.false;
     });
 
-    it('Alice cannot remove Bob\'s assets', async () => {
+    it('Wild fisher cannot remove Buyer\'s assets', async () => {
         // Use the identity for Alice.
         await useIdentity(wildFisherName);
 
@@ -398,7 +404,7 @@ describe(`#${namespace}`, () => {
         assetRegistry.remove('2').should.be.rejectedWith(/does not have .* access to resource/);
     });
 
-    it('Bob can remove his assets', async () => {
+    it('Buyer can remove his assets', async () => {
         // Use the identity for Bob.
         await useIdentity(buyerName);
 
@@ -409,7 +415,7 @@ describe(`#${namespace}`, () => {
         exists.should.be.false;
     });
 
-    it('Bob cannot remove Alice\'s assets', async () => {
+    it('Buyer cannot remove Wild fisher\'s assets', async () => {
         // Use the identity for Bob.
         await useIdentity(buyerName);
 
@@ -418,7 +424,7 @@ describe(`#${namespace}`, () => {
         assetRegistry.remove('1').should.be.rejectedWith(/does not have .* access to resource/);
     });
 
-    it('Alice can submit a transaction for her assets', async () => {
+    it('Wild fisher can submit a transaction for her assets', async () => {
         // Use the identity for Alice.
         await useIdentity(wildFisherName);
 
@@ -446,7 +452,7 @@ describe(`#${namespace}`, () => {
         event.newValue.should.equal('50');
     });
 
-    it('Alice cannot submit a transaction for Bob\'s assets', async () => {
+    it('Wild fisher cannot submit a transaction for Buyer\'s assets', async () => {
         // Use the identity for Alice.
         await useIdentity(wildFisherName);
 
@@ -457,7 +463,7 @@ describe(`#${namespace}`, () => {
         businessNetworkConnection.submitTransaction(transaction).should.be.rejectedWith(/does not have .* access to resource/);
     });
 
-    it('Bob can submit a transaction for his assets', async () => {
+    it('Buyer can submit a transaction for his assets', async () => {
         // Use the identity for Bob.
         await useIdentity(buyerName);
 
@@ -485,7 +491,7 @@ describe(`#${namespace}`, () => {
         event.newValue.should.equal('60');
     });
 
-    it('Bob cannot submit a transaction for Alice\'s assets', async () => {
+    it('Buyer cannot submit a transaction for Wild fisher\'s assets', async () => {
         // Use the identity for Bob.
         await useIdentity(buyerName);
 
