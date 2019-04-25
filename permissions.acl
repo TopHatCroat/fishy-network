@@ -7,12 +7,21 @@ rule ParticipantsCanReadEverything {
   action: ALLOW
 }
 
-rule FisherCanCreateTheirFish {
-  description: "Fisher can create their own fish"
+rule ParticipantsCanMeasureTheirFish {
+  description: "Participants can measure their fish"
+  participant(p): "hr.foi.fishynet.*"
+  operation: CREATE
+  resource(a): "hr.foi.fishynet.MeasureFish"
+  condition: (a.source.getIdentifier() == p.getIdentifier())
+  action: ALLOW
+}
+
+rule FisherCanCatchFish {
+  description: "Fisher can catch fish"
   participant(p): "hr.foi.fishynet.Fisher"
   operation: CREATE
-  resource(a): "hr.foi.fishynet.Fish"
-  condition: (a.owner.getIdentifier() == p.getIdentifier())
+  resource(tx): "hr.foi.fishynet.CatchFish"
+  condition: (tx.fisher.getIdentifier() == p.getIdentifier())
   action: ALLOW
 }
 
@@ -20,15 +29,16 @@ rule FisherCanCatchTheirFish {
   description: "Fisher can catch their own fish"
   participant(p): "hr.foi.fishynet.Fisher"
   operation: CREATE
-  resource(a): "hr.foi.fishynet.CatchFish"
-  condition: (a.fisher.getIdentifier() == p.getIdentifier())
+  resource: "hr.foi.fishynet.Fish"  
+  transaction(tx): "hr.foi.fishynet.CatchFish"
+  condition: (tx.fisher.getIdentifier() == p.getIdentifier())
   action: ALLOW
 }
 
 rule FisherCanProduceTheirFish {
   description: "Fisher can create fish on their farm"
   participant(p): "hr.foi.fishynet.Fisher"
-  operation: ALL
+  operation: CREATE
   resource(a): "hr.foi.fishynet.ProduceFish"
   condition: (a.fish.fisher.getIdentifier() == p.getIdentifier())
   action: ALLOW
@@ -37,9 +47,8 @@ rule FisherCanProduceTheirFish {
 rule FisherCanKillTheirFish {
   description: "Fisher can kill their fish"
   participant(p): "hr.foi.fishynet.Fisher"
-  operation: ALL
-  resource(a): "hr.foi.fishynet.Fish"
-  transaction(tx): "hr.foi.fishynet.KillFish"
+  operation: CREATE
+  resource(a): "hr.foi.fishynet.KillFish"
   condition: (a.fisher.getIdentifier() == p.getIdentifier())
   action: ALLOW
 }
@@ -47,7 +56,7 @@ rule FisherCanKillTheirFish {
 rule FisherCanMeasureTheirFish {
   description: "Fisher can measure their fish"
   participant(p): "hr.foi.fishynet.Fisher"
-  operation: ALL
+  operation: CREATE
   resource(a): "hr.foi.fishynet.Fish"
   transaction(tx): "hr.foi.fishynet.MeasureFish"
   condition: (a.fisher.getIdentifier() == p.getIdentifier())
@@ -58,9 +67,7 @@ rule RegulatorCanMeasureAllFish {
   description: "Regulators can measure every fish"
   participant: "hr.foi.fishynet.Regulator"
   operation: ALL
-  resource: "hr.foi.fishynet.Fish"
-  transaction(tx): "hr.foi.fishynet.MeasureFish"
-  condition: (true)
+  resource: "hr.foi.fishynet.MeasureFish"
   action: ALLOW
 }
 
@@ -107,3 +114,4 @@ rule NetworkAdminSystem {
     resource: "org.hyperledger.composer.system.**"
     action: ALLOW
 }
+
