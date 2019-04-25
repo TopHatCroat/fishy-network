@@ -27,6 +27,8 @@ const fisherType = 'Fisher';
 const fisherCanonicalName = `${namespace}.${fisherType}`;
 const buyerType = 'Buyer';
 const buyerCanonicalName = `${namespace}.${buyerType}`;
+const regulatorType = 'Regulator';
+const regulatorCanonicalName = `${namespace}.${regulatorType}`;
 
 describe(`#${namespace}`, () => {
     // In-memory card store for testing
@@ -49,10 +51,11 @@ describe(`#${namespace}`, () => {
     // This is the factory for creating instances of types.
     let factory;
 
-    // These are the identities for Alice, Eve and Bob.
+    // These are the identities for Alice, Eve, Bob and John.
     const wildFisherName = 'alice';
     const farmFisherName = 'eve';
     const buyerName = 'bob';
+    const regulatorName = 'john';
 
     // These are a list of receieved events.
     let events;
@@ -147,6 +150,13 @@ describe(`#${namespace}`, () => {
 
         buyerRegistry.add(buyer);
 
+        const regulatorRegistry = await bnc.getParticipantRegistry(regulatorCanonicalName);
+        // create the regulator
+        const regulator = factory.newResource(namespace, regulatorType, 'john@email.com');
+        regulator.name = 'John';
+
+        regulatorRegistry.add(regulator);
+
         const assetRegistry = await bnc.getAssetRegistry(fishCanonicalName);
         // Create the assets.
         const asset1 = factory.newResource(namespace, fishType, 'WTUNA1');
@@ -164,12 +174,14 @@ describe(`#${namespace}`, () => {
         assetRegistry.addAll([asset1, asset2]);
 
         // Issue the identities.
-        let identity = await bnc.issueIdentity(`${fisherCanonicalName}#alice@email.com`, 'alice1');
+        let identity = await bnc.issueIdentity(`${fisherCanonicalName}#alice@email.com`, 'alice');
         await importCardForIdentity(wildFisherName, identity);
-        identity = await bnc.issueIdentity(`${fisherCanonicalName}#eve@email.com`, 'eve1');
+        identity = await bnc.issueIdentity(`${fisherCanonicalName}#eve@email.com`, 'eve');
         await importCardForIdentity(farmFisherName, identity);
-        identity = await bnc.issueIdentity(`${buyerCanonicalName}#bob@email.com`, 'bob1');
+        identity = await bnc.issueIdentity(`${buyerCanonicalName}#bob@email.com`, 'bob');
         await importCardForIdentity(buyerName, identity);
+        identity = await bnc.issueIdentity(`${regulatorCanonicalName}#john@email.com`, 'john');
+        await importCardForIdentity(regulatorName, identity);
     });
 
     /**
@@ -254,7 +266,7 @@ describe(`#${namespace}`, () => {
         // Use the identity for Alice.
         await useIdentity(wildFisherName);
 
-        // Create FishCaugth transaction
+        // Create CatchFish transaction
         const transaction = factory.newTransaction(namespace, 'CatchFish');
         transaction.fishId = 'WTUNA2';
         transaction.fisher = factory.newRelationship(namespace, fisherType, 'alice@email.com');
@@ -334,31 +346,66 @@ describe(`#${namespace}`, () => {
         existingAsset.state = 'STORED';
 
         await assetRegistry.update(existingAsset)
-            .should.be.rejectedWith(/does not have .* access to resource/)
+            .should.be.rejectedWith(/does not have .* access to resource/);
     });
 
-    it('Wild fisher cannot update Buyer\'s assets', async () => {
+    it('Regulator can measure fat of any fish', async () => {
+        // Use the identity for Alice.
+        await useIdentity(regulatorName);
+
+        // Create MeasureFish transaction
+        const transaction = factory.newTransaction(namespace, 'MeasureFish');
+        transaction.fish = factory.newRelationship(namespace, fishType, 'WTUNA1');
+        transaction.source = factory.newRelationship(namespace, regulatorType, 'john@email.com');
+        transaction.type = 'FAT';
+        transaction.value = 8.20;
+        await bnc.submitTransaction(transaction);
+
+        // Validate the events.
+        events.should.have.lengthOf(1);
+        const event = events[0];
+        event.eventId.should.be.a('string');
+        event.timestamp.should.be.an.instanceOf(Date);
+        event.fish.getFullyQualifiedIdentifier().should.equal(`${fishCanonicalName}#WTUNA1`);
+        event.source.getFullyQualifiedIdentifier()
+            .should.equal(`${regulatorCanonicalName}#john@email.com`);
+    });
+
+    it('Fisher can measure weight of his fish', async () => {
         // Use the identity for Alice.
         await useIdentity(wildFisherName);
 
-        // Create the asset.
-        const asset2 = factory.newResource(namespace, assetType, '2');
-        asset2.owner = factory.newRelationship(namespace, participantType, 'bob@email.com');
-        asset2.value = '50';
+        // Create MeasureFish transaction
+        const transaction = factory.newTransaction(namespace, 'MeasureFish');
+        transaction.fish = factory.newRelationship(namespace, fishType, 'WTUNA1');
+        transaction.source = factory.newRelationship(namespace, fisherType, 'alice@email.com');
+        transaction.type = 'WEIGHT';
+        transaction.value = 240;
+        await bnc.submitTransaction(transaction);
 
-        // Try to update the asset, should fail.
-        const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
-        assetRegistry.update(asset2).should.be.rejectedWith(/does not have .* access to resource/);
+        // Validate the events.
+        events.should.have.lengthOf(1);
+        const event = events[0];
+        event.eventId.should.be.a('string');
+        event.timestamp.should.be.an.instanceOf(Date);
+        event.fish.getFullyQualifiedIdentifier().should.equal(`${fishCanonicalName}#WTUNA1`);
+        event.source.getFullyQualifiedIdentifier()
+            .should.equal(`${fisherCanonicalName}#alice@email.com`);
     });
 
-    it('Buyer can update his assets', async () => {
-        // Use the identity for Bob.
-        await useIdentity(buyerName);
+    it('Fisher can not measure other fisher\'s fish', async () => {
+        // Use the identity for Alice.
+        await useIdentity(wildFisherName);
 
-        // Create the asset.
-        let asset2 = factory.newResource(namespace, assetType, '2');
-        asset2.owner = factory.newRelationship(namespace, participantType, 'bob@email.com');
-        asset2.value = '60';
+        // Create MeasureFish transaction
+        const transaction = factory.newTransaction(namespace, 'MeasureFish');
+        transaction.fish = factory.newRelationship(namespace, fishType, 'FTUNA1');
+        transaction.source = factory.newRelationship(namespace, fisherType, 'alice@email.com');
+        transaction.type = 'WEIGHT';
+        transaction.value = 240;
+        await bnc.submitTransaction(transaction)
+            .should.be.rejectedWith(/does not have .* access to resource/);
+    });
 
         // Update the asset, then get the asset.
         const assetRegistry = await businessNetworkConnection.getAssetRegistry(assetNS);
