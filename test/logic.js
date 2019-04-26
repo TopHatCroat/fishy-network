@@ -3,7 +3,6 @@
  * Write the unit tests for your transaction processor functions here
  */
 
-const { AdminConnection } = require('composer-admin');
 const { BusinessNetworkConnection } = require('composer-client');
 const {
     NetworkCardStoreManager,
@@ -16,6 +15,11 @@ const path = require('path');
 const chai = require('chai');
 chai.should();
 chai.use(require('chai-as-promised'));
+
+const {
+    createAdminConnection,
+    createCardForIdentity,
+} = require('./utils');
 
 // Name of the business network card containing the administrative identity for
 // the business network
@@ -35,12 +39,6 @@ describe(`#${namespace}`, () => {
     const cardStore = NetworkCardStoreManager.getCardStore({
         type: 'composer-wallet-inmemory'
     });
-
-    // Embedded connection used for local testing
-    const connectionProfile = {
-        name: 'embedded',
-        'x-type': 'embedded'
-    };
 
     // Admin connection to the blockchain, used to deploy the business network
     let adminConnection;
@@ -63,40 +61,8 @@ describe(`#${namespace}`, () => {
     let businessNetworkName;
 
     before(async () => {
-        // Generate certificates for use with the embedded connection
-        const credentials = CertificateUtil.generate({ commonName: 'admin' });
-
-        // Identity used with the admin connection to deploy business networks
-        const deployerMetadata = {
-            version: 1,
-            userName: 'PeerAdmin',
-            roles: [ 'PeerAdmin', 'ChannelAdmin' ]
-        };
-        const deployerCard = new IdCard(deployerMetadata, connectionProfile);
-        deployerCard.setCredentials(credentials);
-        const deployerCardName = 'PeerAdmin';
-
-        adminConnection = new AdminConnection({ cardStore: cardStore });
-
-        await adminConnection.importCard(deployerCardName, deployerCard);
-        await adminConnection.connect(deployerCardName);
+        adminConnection = await createAdminConnection(cardStore);
     });
-
-    /**
-     *
-     * @param {String} cardName The card name to use for this identity
-     * @param {Object} identity The identity details
-     */
-    async function importCardForIdentity(cardName, identity) {
-        const metadata = {
-            userName: identity.userID,
-            version: 1,
-            enrollmentSecret: identity.userSecret,
-            businessNetwork: businessNetworkName
-        };
-        const card = new IdCard(metadata, connectionProfile);
-        await adminConnection.importCard(cardName, card);
-    }
 
     // This is called before each test is executed.
     beforeEach(async () => {

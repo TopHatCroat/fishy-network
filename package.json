@@ -10,7 +10,8 @@
     "prepublish": "mkdirp ./dist && composer archive create --sourceType dir --sourceName . -a ./dist/fishy-network.bna",
     "pretest": "npm run lint",
     "lint": "eslint .",
-    "test": "nyc mocha -t 0 test/*.js && cucumber-js"
+    "test:acceptance": "nyc mocha -t 0 test/*.spec.js && cucumber-js",
+    "test:unit": "mocha -t 0 ./test/*.spec.js"
   },
   "keywords": [
     "composer",
