@@ -26,52 +26,52 @@ abstract transaction FishTransaction {
   --> Fish fish
 }
 
-transaction FishCaught extends NewFishTransaction {
+transaction CatchFish extends NewFishTransaction {
   o Double latitude
   o Double longitude
 }
 
-transaction FishBorn extends NewFishTransaction {
+transaction ProduceFish extends NewFishTransaction {
 }
 
-transaction FishKilled extends FishTransaction {
+transaction KillFish extends FishTransaction {
 }
 
-transaction FishMeasurement extends FishTransaction {
+transaction MeasureFish extends FishTransaction {
+  --> Business source
   o MeasurementType type
   o Double value
 }
 
-transaction FishEvaluation extends FishTransaction {
+transaction EvaluateFish extends FishTransaction {
   --> Regulator regulator
 }
 
-transaction FishSold extends FishTransaction {
-  --> Buyer buyer
+transaction TradeFish extends FishTransaction {
+  --> Business buyer
   o Double pricePerKilo
   o Double fatMultiplier
-  o Double priceTotal
+  o Double idealFatPercentage
 }
 
 abstract participant Business identified by email {
   o String email
   o String name
-  o Double balance
 }
 
 participant Fisher extends Business {
+  o Double balance
 }
 
 participant Buyer extends Business {
+  o Double balance
 }
 
-participant Regulator identified by regulatorId {
-  o String regulatorId
-  o String name
+participant Regulator extends Business {
 }
 
 asset Fish identified by fishId {
-  o String fishId regex=/(\w|\d){3,}/
+  o String fishId regex=/^(\w){3,60}$/
   o FishType type
   o FishState state
   --> Fisher fisher
@@ -79,15 +79,24 @@ asset Fish identified by fishId {
   --> Business owner
 }
 
-event FishKilledEvent {
+event FishKilled {
   --> Fish fish
+  --> Fisher fisher
 }
 
-event FishMeasuredEvent {
+event FishMeasured {
   --> Fish fish
+  --> Business source
 }
 
-event FishSoldEvent {
+event FishEvaluated {
   --> Fish fish
+  --> Regulator regulator
+}
+
+event FishSold {
+  --> Fish fish
+  --> Business seller
+  --> Business buyer
 }
 
