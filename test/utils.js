@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const { AdminConnection } = require('composer-admin');
 
 const {
@@ -58,5 +59,33 @@ function createCardForIdentity(businessNetworkName, identity) {
     return card;
 }
 
+/**
+ * @param adminConnection connection to the network with right to install a network definition
+ * @param adminCardName name of admin card with the credentials
+ */
+async function createNetworkDefinitionAndImportAdmin(adminConnection, adminCardName) {
+    // Generate a business network definition from the project directory.
+    let bnd = await BusinessNetworkDefinition.fromDirectory(path.resolve(__dirname, '..'));
+    const businessNetworkName = bnd.getName();
+    await adminConnection.install(bnd);
+    const startOptions = {
+        networkAdmins: [
+            {
+                userName: 'admin',
+                enrollmentSecret: 'adminpw'
+            }
+        ]
+    };
+    const adminCards = await adminConnection.start(
+        businessNetworkName,
+        bnd.getVersion(),
+        startOptions
+    );
+    await adminConnection.importCard(adminCardName, adminCards.get('admin'));
+
+    return businessNetworkName;
+}
+
 module.exports.createAdminConnection = createAdminConnection;
 module.exports.createCardForIdentity = createCardForIdentity;
+module.exports.createNetworkDefinitionAndImportAdmin = createNetworkDefinitionAndImportAdmin;
