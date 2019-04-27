@@ -2,7 +2,17 @@
 
 A network for trading raw fish and other tasty underwater animals
 
-## Usage
+## Use cases
+
+* A fisher can catch wild fish
+* An other fisher can buy fish from a fisher and store it
+  For example, a tuna farmer can buy small tuna for fattening at his farm
+* A fisher can measure his fish for stats like weight, amount of fat and body temperature
+* A regulator can measure any fish for stats like weight, amount of fat and body temperature
+* A regulator can evaluate any fish confirming the legality of it's source and storage
+* A buyer can buy evaluated fish from a fisher
+
+## Usage instructions
 
 #### Prerequisites
 
@@ -30,11 +40,11 @@ You can stop or destroy the containers by running `./stopFabric.sh` or
 
 Create and import the Administrator credentials (Business Network Card)
 
+> Make sure no data from previous Composer installations is present `rm -rf ~/.composer`
+
+
 * Inside the `fabric-scripts` directory run `./createPeerAdminCard.sh`
   * You can list existing BNCs with `composer card list`
-
-  > In case of any conflict errors, delete the data from the previous run
-`rm -rf ~/.composer`
 
 * Generate the business network archive (`.bna` or banana file) by running the
 following inside the **root application directory**
@@ -49,4 +59,4 @@ credentials:
   > This will generate the Business Network card which can be imported into the
 playground. You can run the playground client locally with `composer-playground`
 
-* Start the REST server `composer-rest-server`
+* Start the REST server `composer-rest-server -p 5000 -c admin@fishy-network -n always`
