@@ -7,12 +7,13 @@ rule ParticipantsCanReadEverything {
   action: ALLOW
 }
 
-rule ParticipantsCanMeasureTheirFish {
-  description: "Participants can measure their fish"
+rule ParticipantCanUpdateBalanceOfBuyerAndSeller {
+  description: "Participant can update the balance of self and the seller in a trade transaction"
   participant(p): "hr.foi.fishynet.*"
-  operation: CREATE
-  resource(a): "hr.foi.fishynet.MeasureFish"
-  condition: (a.source.getIdentifier() == p.getIdentifier())
+  operation: UPDATE
+  resource(a): "hr.foi.fishynet.*"
+  transaction(tx): "hr.foi.fishynet.TradeFish"
+  condition: (p.getIdentifier() == tx.buyer.getIdentifier())
   action: ALLOW
 }
 
@@ -29,23 +30,33 @@ rule FisherCanCatchTheirFish {
   description: "Fisher can catch their own fish"
   participant(p): "hr.foi.fishynet.Fisher"
   operation: CREATE
-  resource: "hr.foi.fishynet.Fish"  
-  transaction(tx): "hr.foi.fishynet.CatchFish"
-  condition: (tx.fisher.getIdentifier() == p.getIdentifier())
+  resource(a): "hr.foi.fishynet.Fish"
+  transaction: "hr.foi.fishynet.CatchFish"
+  condition: (a.owner.getIdentifier() == p.getIdentifier())
+  action: ALLOW
+}
+
+rule FisherCanProduceFish {
+  description: "Fisher can produce fish"
+  participant(p): "hr.foi.fishynet.Fisher"
+  operation: CREATE
+  resource(a): "hr.foi.fishynet.ProduceFish"
+  condition: (a.fisher.getIdentifier() == p.getIdentifier())
   action: ALLOW
 }
 
 rule FisherCanProduceTheirFish {
-  description: "Fisher can create fish on their farm"
+  description: "Fisher can create their new fish"
   participant(p): "hr.foi.fishynet.Fisher"
   operation: CREATE
-  resource(a): "hr.foi.fishynet.ProduceFish"
-  condition: (a.fish.fisher.getIdentifier() == p.getIdentifier())
+  resource(a): "hr.foi.fishynet.Fish"
+  transaction: "hr.foi.fishynet.ProduceFish"
+  condition: (a.owner.getIdentifier() == p.getIdentifier())
   action: ALLOW
 }
 
-rule FisherCanKillTheirFish {
-  description: "Fisher can kill their fish"
+rule FisherCanKillFish {
+  description: "Fisher can kill fish"
   participant(p): "hr.foi.fishynet.Fisher"
   operation: CREATE
   resource(a): "hr.foi.fishynet.KillFish"
@@ -53,41 +64,86 @@ rule FisherCanKillTheirFish {
   action: ALLOW
 }
 
-rule FisherCanMeasureTheirFish {
-  description: "Fisher can measure their fish"
+rule FisherCanKillTheirFish {
+  description: "Fisher can kill their fish"
   participant(p): "hr.foi.fishynet.Fisher"
-  operation: CREATE
+  operation: UPDATE
   resource(a): "hr.foi.fishynet.Fish"
-  transaction(tx): "hr.foi.fishynet.MeasureFish"
-  condition: (a.fisher.getIdentifier() == p.getIdentifier())
+  transaction: "hr.foi.fishynet.KillFish"
+  condition: (a.owner.getIdentifier() == p.getIdentifier())
+  action: ALLOW
+}
+
+rule ParticipantsCanMeasureFish {
+  description: "Participants can measure their fish"
+  participant(p): "hr.foi.fishynet.*"
+  operation: CREATE
+  resource(a): "hr.foi.fishynet.MeasureFish"
+  condition: (a.fish.owner.getIdentifier() == p.getIdentifier())
   action: ALLOW
 }
 
 rule RegulatorCanMeasureAllFish {
   description: "Regulators can measure every fish"
   participant: "hr.foi.fishynet.Regulator"
-  operation: ALL
+  operation: CREATE
   resource: "hr.foi.fishynet.MeasureFish"
   action: ALLOW
 }
 
-rule RegulatorCanEvaluateAllFish {
+rule RegulatorCanEvaluateFish {
   description: "Regulators can evaluate every fish"
   participant: "hr.foi.fishynet.Regulator"
-  operation: ALL
-  resource: "hr.foi.fishynet.Fish"
-  transaction(tx): "hr.foi.fishynet.MeasureFish"
+  operation: CREATE
+  resource: "hr.foi.fishynet.EvaluateFish"
+  action: ALLOW
+}
+
+rule RegulatorEvaluateAllFish {
+  description: "Regulators can evaluate fish"
+  participant: "hr.foi.fishynet.Regulator"
+  operation: UPDATE
+  resource(a): "hr.foi.fishynet.Fish"
+  transaction: "hr.foi.fishynet.EvaluateFish"
   condition: (true)
   action: ALLOW
 }
 
-rule BuyersCanBuyAllFish {
-  description: "Business can buy every fish not their own"
+rule BusinessCanTradeFish {
+  description: "Business can trade fish"
   participant: "hr.foi.fishynet.Business"
-  operation: ALL
+  operation: CREATE
+  resource: "hr.foi.fishynet.TradeFish"
+  action: ALLOW
+}
+
+rule BuyerCanBuyAllEvaluatedFish {
+  description: "Buyer can buy every evaluated fish not their own"
+  participant: "hr.foi.fishynet.Buyer"
+  operation: UPDATE
   resource(a): "hr.foi.fishynet.Fish"
   transaction(tx): "hr.foi.fishynet.TradeFish"
-  condition: (a.owner.getIdentifier() != a.getIdentifier())
+  condition: (a.state == 'EVALUATED' && a.owner.getIdentifier() != a.getIdentifier())
+  action: ALLOW
+}
+
+
+
+rule FisherSeeOwnHistoryOnly {
+  description: "Fishers can see the history of their own transactions only"
+  participant(t): "hr.foi.fishynet.Fisher"
+  operation: READ
+  resource(a): "org.hyperledger.composer.system.HistorianRecord"
+  condition: (a.participantInvoking.getIdentifier() != t.getIdentifier())
+  action: DENY
+}
+
+rule RegulatorAndBuyerSeeOwnHistoryOnly {
+  description: "Regulators and buyers see the history of all own transactions only"
+  participant(t): "hr.foi.fishynet.*"
+  operation: READ
+  resource(a): "org.hyperledger.composer.system.HistorianRecord"
+  condition: (true)
   action: ALLOW
 }
 
